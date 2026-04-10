@@ -1,24 +1,25 @@
 import * as vscode from 'vscode';
-import { UsageStore } from '../storage/usageStore';
-import { LLMProvider } from '../models/types';
-import { formatTokenCount, providerDisplayName } from '../utils/formatting';
+import { ClaudeCodeTracker } from '../tracking/claudeCodeParser';
+import { ClaudeCodeSession } from '../models/types';
+import { formatTokenCount } from '../utils/formatting';
 
-type TreeElement = ProviderNode | ModelNode;
+type TreeElement = RootNode | SessionNode | DetailNode;
 
-interface ProviderNode {
-  kind: 'provider';
-  provider: LLMProvider;
+interface RootNode {
+  kind: 'root';
+  label: string;
 }
 
-interface ModelNode {
-  kind: 'model';
-  provider: LLMProvider;
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
+interface SessionNode {
+  kind: 'session';
+  session: ClaudeCodeSession;
 }
 
-const PROVIDERS: LLMProvider[] = ['anthropic', 'openai', 'gemini'];
+interface DetailNode {
+  kind: 'detail';
+  label: string;
+  value: string;
+}
 
 export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private _onDidChangeTreeData = new vscode.EventEmitter<TreeElement | undefined | void>();
@@ -26,8 +27,8 @@ export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   private changeListener: vscode.Disposable;
 
-  constructor(private store: UsageStore) {
-    this.changeListener = store.onDidChange(() => this.refresh());
+  constructor(private tracker: ClaudeCodeTracker) {
+    this.changeListener = tracker.onDidChange(() => this.refresh());
   }
 
   refresh(): void {
@@ -35,56 +36,92 @@ export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   }
 
   getTreeItem(element: TreeElement): vscode.TreeItem {
-    if (element.kind === 'provider') {
-      const summary = this.store.getSummary();
-      const ps = summary.byProvider[element.provider];
-      const total = ps.inputTokens + ps.outputTokens;
-
-      const item = new vscode.TreeItem(
-        providerDisplayName(element.provider),
-        ps.entryCount > 0
-          ? vscode.TreeItemCollapsibleState.Expanded
-          : vscode.TreeItemCollapsibleState.Collapsed,
-      );
-      item.description = `${formatTokenCount(total)} tokens`;
+    if (element.kind === 'root') {
+      const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.Expanded);
+      if (element.label === 'By Model') {
+        item.iconPath = new vscode.ThemeIcon('symbol-class');
+      } else {
+        item.iconPath = new vscode.ThemeIcon('history');
+      }
       return item;
     }
 
-    const total = element.inputTokens + element.outputTokens;
-    const item = new vscode.TreeItem(element.model, vscode.TreeItemCollapsibleState.None);
-    item.description = `${formatTokenCount(total)} (in: ${formatTokenCount(element.inputTokens)}, out: ${formatTokenCount(element.outputTokens)})`;
+    if (element.kind === 'session') {
+      const s = element.session;
+      const u = s.totalUsage;
+      const total = u.inputTokens + u.outputTokens + u.cacheCreationTokens + u.cacheReadTokens;
+      const date = new Date(s.lastTimestamp);
+      const dateStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+
+      const item = new vscode.TreeItem(
+        dateStr,
+        vscode.TreeItemCollapsibleState.Collapsed,
+      );
+      item.description = `${formatTokenCount(total)} tokens · ${s.responses.length} responses`;
+      item.iconPath = new vscode.ThemeIcon('comment-discussion');
+      return item;
+    }
+
+    // detail
+    const item = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
+    item.description = element.value;
     return item;
   }
 
   getChildren(element?: TreeElement): TreeElement[] {
     if (!element) {
-      return PROVIDERS.map(p => ({ kind: 'provider' as const, provider: p }));
-    }
-
-    if (element.kind === 'provider') {
-      const entries = this.store.getAll().filter(e => e.provider === element.provider);
-      const modelMap = new Map<string, { inputTokens: number; outputTokens: number }>();
-
-      for (const entry of entries) {
-        const existing = modelMap.get(entry.model);
-        if (existing) {
-          existing.inputTokens += entry.inputTokens;
-          existing.outputTokens += entry.outputTokens;
-        } else {
-          modelMap.set(entry.model, {
-            inputTokens: entry.inputTokens,
-            outputTokens: entry.outputTokens,
-          });
-        }
+      if (!this.tracker.hasProjectDir()) {
+        return [{
+          kind: 'detail',
+          label: 'No Claude Code data found',
+          value: 'Open a project folder with Claude Code history',
+        }];
       }
 
-      return Array.from(modelMap.entries()).map(([model, data]) => ({
-        kind: 'model' as const,
-        provider: element.provider,
-        model,
-        inputTokens: data.inputTokens,
-        outputTokens: data.outputTokens,
+      const summary = this.tracker.getSummary();
+      if (summary.totalResponses === 0) {
+        return [{
+          kind: 'detail',
+          label: 'No usage data yet',
+          value: 'Use Claude Code in this project first',
+        }];
+      }
+
+      return [
+        { kind: 'root', label: 'By Model' },
+        { kind: 'root', label: 'Sessions' },
+      ];
+    }
+
+    const summary = this.tracker.getSummary();
+
+    if (element.kind === 'root' && element.label === 'By Model') {
+      return Object.entries(summary.byModel).map(([model, data]) => {
+        const total = data.inputTokens + data.outputTokens + data.cacheCreationTokens + data.cacheReadTokens;
+        return {
+          kind: 'detail' as const,
+          label: model,
+          value: `${formatTokenCount(total)} · ${data.count} calls`,
+        };
+      });
+    }
+
+    if (element.kind === 'root' && element.label === 'Sessions') {
+      return summary.sessions.slice(0, 20).map(s => ({
+        kind: 'session' as const,
+        session: s,
       }));
+    }
+
+    if (element.kind === 'session') {
+      const u = element.session.totalUsage;
+      return [
+        { kind: 'detail' as const, label: 'Input', value: formatTokenCount(u.inputTokens) },
+        { kind: 'detail' as const, label: 'Output', value: formatTokenCount(u.outputTokens) },
+        { kind: 'detail' as const, label: 'Cache Write', value: formatTokenCount(u.cacheCreationTokens) },
+        { kind: 'detail' as const, label: 'Cache Read', value: formatTokenCount(u.cacheReadTokens) },
+        { kind: 'detail' as const, label: 'Responses', value: `${element.session.responses.length}` },
+      ];
     }
 
     return [];

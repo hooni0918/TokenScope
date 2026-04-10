@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
-import { UsageStore } from '../storage/usageStore';
+import { ClaudeCodeTracker } from '../tracking/claudeCodeParser';
 import { createDashboardPanel } from '../ui/dashboard';
 
 let currentPanel: vscode.WebviewPanel | undefined;
 
 export function registerShowDashboardCommand(
   context: vscode.ExtensionContext,
-  store: UsageStore,
+  tracker: ClaudeCodeTracker,
 ): void {
   const disposable = vscode.commands.registerCommand(
     'tokenScope.showDashboard',
@@ -16,7 +16,7 @@ export function registerShowDashboardCommand(
         return;
       }
 
-      currentPanel = createDashboardPanel(context, store);
+      currentPanel = createDashboardPanel(context, tracker);
 
       currentPanel.onDidDispose(() => {
         currentPanel = undefined;
