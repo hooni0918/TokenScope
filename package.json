@@ -1,14 +1,29 @@
 {
   "name": "tokenscope",
   "displayName": "TokenScope",
-  "description": "Track LLM API token usage per project (Anthropic, OpenAI, Gemini)",
-  "version": "0.1.0",
+  "description": "Auto-track Claude Code token usage per project. See how many tokens you've spent with Claude Code on each workspace.",
+  "version": "0.2.0",
   "publisher": "hooni0918",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hooni0918/TokenScope"
+  },
+  "icon": "resources/icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "claude",
+    "claude code",
+    "token",
+    "usage",
+    "tracking",
+    "LLM",
+    "anthropic"
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -17,18 +32,8 @@
   "contributes": {
     "commands": [
       {
-        "command": "tokenScope.logUsage",
-        "title": "Log Token Usage",
-        "category": "TokenScope"
-      },
-      {
         "command": "tokenScope.showDashboard",
         "title": "Show Token Dashboard",
-        "category": "TokenScope"
-      },
-      {
-        "command": "tokenScope.resetUsage",
-        "title": "Reset Token Usage",
         "category": "TokenScope"
       }
     ],
@@ -48,38 +53,19 @@
           "name": "Token Usage"
         }
       ]
-    },
-    "menus": {
-      "view/title": [
-        {
-          "command": "tokenScope.logUsage",
-          "when": "view == tokenScope.usageView",
-          "group": "navigation"
-        }
-      ]
-    },
-    "configuration": {
-      "title": "TokenScope",
-      "properties": {
-        "tokenScope.showInStatusBar": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show total token count in the status bar"
-        }
-      }
     }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
     "@types/node": "^20.0.0",
     "typescript": "^5.3.0",
-    "@vscode/test-cli": "^0.0.4",
-    "@vscode/test-electron": "^2.3.8"
+    "@vscode/vsce": "^3.0.0"
   }
 }
