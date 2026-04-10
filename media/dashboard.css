@@ -1,0 +1,130 @@
+body {
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-editor-background);
+  padding: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 1.6em;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--vscode-widget-border);
+  padding-bottom: 10px;
+}
+
+h2 {
+  font-size: 1.2em;
+  margin-top: 30px;
+  margin-bottom: 12px;
+}
+
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.card {
+  background: var(--vscode-editor-inactiveSelectionBackground);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 6px;
+  padding: 16px;
+  text-align: center;
+}
+
+.card-label {
+  font-size: 0.85em;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 6px;
+}
+
+.card-value {
+  font-size: 1.8em;
+  font-weight: bold;
+  color: var(--vscode-foreground);
+}
+
+.chart-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bar-label {
+  width: 140px;
+  font-size: 0.9em;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.bar-track {
+  flex: 1;
+  height: 24px;
+  background: var(--vscode-editor-inactiveSelectionBackground);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.provider-anthropic {
+  background-color: #d97706;
+}
+
+.provider-openai {
+  background-color: #10a37f;
+}
+
+.provider-gemini {
+  background-color: #4285f4;
+}
+
+.bar-value {
+  width: 70px;
+  font-size: 0.9em;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.entries-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 0.9em;
+}
+
+.entries-table th,
+.entries-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+.entries-table th {
+  color: var(--vscode-descriptionForeground);
+  font-weight: 600;
+}
+
+.entries-table tr:hover td {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.empty {
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+  padding: 24px;
+  font-style: italic;
+}
