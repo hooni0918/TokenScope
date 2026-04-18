@@ -1,34 +1,99 @@
 # TokenScope
 
-> **Know exactly how many tokens Claude Code is burning on your project.**
+> **Know exactly how many tokens (and dollars) Claude Code is burning on your project.**
 
-TokenScope automatically tracks [Claude Code](https://docs.anthropic.com/en/docs/claude-code) token usage per workspace in VSCode. No API keys, no manual input — just install and code.
+TokenScope automatically tracks [Claude Code](https://docs.anthropic.com/en/docs/claude-code) token usage and estimated cost per workspace in VSCode. No API keys, no manual input — just install and code.
 
 ---
 
 ## Why TokenScope?
 
-Claude Code doesn't show cumulative token usage per project. If you're working across multiple repos, it's hard to know where your tokens are going. TokenScope answers that by reading Claude Code's local conversation logs and presenting a clear breakdown — right inside VSCode.
+Claude Code doesn't show cumulative token usage per project. If you're working across multiple repos, it's hard to know where your tokens are going — or how much it's costing you.
+
+TokenScope answers that by reading Claude Code's local conversation logs and presenting a clear breakdown — right inside VSCode.
+
+- How many tokens did I spend on this project today?
+- Which model is eating the most tokens?
+- How much is this costing me?
+- Is my usage trending up or down?
+
+---
 
 ## Features
 
 ### Status Bar — Always Visible
-A persistent token counter in the status bar shows your project's total usage at a glance. Click it to open the full dashboard.
+
+A persistent token counter in the status bar shows your project's total usage and estimated cost at a glance. Click it to open the full dashboard.
+
+The tooltip expands to show a full breakdown:
+- Input / Output / Cache Write / Cache Read tokens
+- Total session and response counts
+- Estimated cost in USD
 
 ### Sidebar Tree View
-Browse usage broken down by **model** and **session** directly in the activity bar. Expand any session to see input, output, cache write, and cache read tokens.
+
+Browse usage broken down by **model** and **session** directly in the activity bar.
+
+- **By Model** — see each model's total tokens, call count, and estimated cost
+- **Sessions** — expand any session to see per-token-type breakdown and cost
+- Configurable session display limit with `+N more sessions` indicator
 
 ### Dashboard
-A dedicated webview panel with:
-- **Summary cards** — total tokens, input, output, cache write, cache read, session count, response count
-- **Per-model bar chart** — see which models are consuming the most tokens
-- **Session history table** — recent sessions with full token breakdown
+
+A dedicated webview panel with rich visualizations:
+
+- **Summary cards** — total tokens, input, output, cache write, cache read, session count, response count, and estimated cost
+- **Per-model bar chart** — see which models are consuming the most tokens, with cost per model
+- **Daily trend chart** — visualize your token usage over the last 14 days to spot patterns and spikes
+- **Session history table** — recent sessions with full token breakdown and per-session cost estimate
+- **CSV Export** — one-click export of all session data for reporting or analysis
+
+### Cost Estimation
+
+TokenScope automatically estimates your spending based on known Claude model pricing:
+
+| Model | Input | Output | Cache Write | Cache Read |
+|-------|-------|--------|-------------|------------|
+| Claude Opus 4 | $15/M | $75/M | $18.75/M | $1.50/M |
+| Claude Sonnet 4 | $3/M | $15/M | $3.75/M | $0.30/M |
+| Claude 3.5 Sonnet | $3/M | $15/M | $3.75/M | $0.30/M |
+| Claude 3.5 Haiku | $0.80/M | $4/M | $1/M | $0.08/M |
+| Claude 3 Opus | $15/M | $75/M | $18.75/M | $1.50/M |
+| Claude 3 Haiku | $0.25/M | $1.25/M | $0.30/M | $0.03/M |
+
+Cost estimates appear in the status bar, tree view, and dashboard. If a model is not in the pricing table, those tokens are excluded from the cost total and a note is shown.
+
+You can toggle cost display on/off via the `tokenScope.showCostEstimate` setting.
+
+### CSV Export
+
+Export your complete session history to CSV for spreadsheets, reporting, or team sharing.
+
+Each row includes: Session ID, Date, Response count, Input/Output/Cache Write/Cache Read tokens, Total tokens, and Estimated Cost.
+
+**Two ways to export:**
+- Click the **Export CSV** button in the dashboard
+- Run `TokenScope: Export Usage to CSV` from the Command Palette
+
+### Daily Trend Chart
+
+The dashboard includes a 14-day bar chart showing daily token consumption. Use it to:
+
+- Spot which days had heavy Claude Code usage
+- Track whether your token usage is increasing or decreasing
+- Identify spikes and correlate them with development activity
 
 ### Zero Configuration
+
 TokenScope reads from `~/.claude/projects/`, the same directory Claude Code already writes to. There's nothing to set up.
 
 ### Live Updates
+
 A file watcher monitors Claude Code's log files. New usage appears automatically as you work — no reload needed.
+
+### Diagnostic Logging
+
+TokenScope writes to a dedicated Output Channel (`TokenScope` in the Output panel). If something looks wrong — missing data, unexpected counts — check the logs for details on file parsing and directory resolution.
 
 ---
 
@@ -44,7 +109,8 @@ A file watcher monitors Claude Code's log files. New usage appears automatically
 1. Claude Code stores conversation logs as JSONL files under `~/.claude/projects/`, keyed by your workspace path.
 2. TokenScope maps your current workspace folder to the matching Claude Code directory.
 3. It parses every assistant response to extract `input_tokens`, `output_tokens`, `cache_creation_input_tokens`, and `cache_read_input_tokens`.
-4. Data is aggregated by session and model, then displayed in the status bar, tree view, and dashboard.
+4. Data is aggregated by session, model, and day, then displayed in the status bar, tree view, and dashboard.
+5. Cost is estimated by matching the model name against known Claude pricing.
 
 ## Token Types
 
@@ -60,8 +126,16 @@ A file watcher monitors Claude Code's log files. New usage appears automatically
 | Command | Description |
 |---------|-------------|
 | `TokenScope: Show Token Dashboard` | Open the visual dashboard in a new tab |
+| `TokenScope: Export Usage to CSV` | Export all session data to a CSV file |
 
 > **Tip:** You can also click the token counter in the status bar to open the dashboard.
+
+## Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `tokenScope.sessionLimit` | `50` | Maximum number of sessions to display in the tree view and dashboard (5–500) |
+| `tokenScope.showCostEstimate` | `true` | Show estimated cost based on Claude model pricing |
 
 ## Requirements
 
@@ -71,16 +145,22 @@ A file watcher monitors Claude Code's log files. New usage appears automatically
 ## FAQ
 
 **Q: Does this send any data to external servers?**
-A: No. TokenScope is fully offline. It only reads local JSONL files from your machine.
+A: No. TokenScope is fully offline. It only reads local JSONL files from your machine. No telemetry, no network requests.
 
 **Q: Does it work with Claude.ai (web)?**
 A: No. TokenScope only tracks usage from [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (the CLI/IDE tool), not the web interface.
 
 **Q: I opened a project but it shows 0 tokens.**
-A: Make sure you've used Claude Code in that specific workspace folder at least once. TokenScope looks for logs matching your workspace path.
+A: Make sure you've used Claude Code in that specific workspace folder at least once. TokenScope looks for logs matching your workspace path. Check the `TokenScope` Output Channel for diagnostic details.
 
-**Q: Does it track costs?**
-A: Not yet. TokenScope currently tracks raw token counts. Cost estimation may be added in a future release.
+**Q: Are the cost estimates accurate?**
+A: They are estimates based on publicly listed Claude API pricing. Actual costs may differ depending on your Anthropic plan or billing terms. If a model isn't recognized, its tokens won't be included in the cost calculation.
+
+**Q: Can I see more than 50 sessions?**
+A: Yes. Change the `tokenScope.sessionLimit` setting to any value between 5 and 500.
+
+**Q: Does it work on Windows?**
+A: Yes. TokenScope supports both Unix and Windows-style line endings in JSONL files.
 
 ---
 
