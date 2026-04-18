@@ -3,10 +3,10 @@ import * as path from 'path';
 import * as os from 'os';
 import * as vscode from 'vscode';
 import {
-  ClaudeCodeUsage,
-  ClaudeCodeResponse,
-  ClaudeCodeSession,
-  ClaudeCodeSummary,
+  TokenUsage,
+  TokenResponse,
+  TokenSession,
+  UsageSummary,
   DailyUsage,
 } from '../models/types';
 
@@ -20,15 +20,20 @@ function log(message: string): void {
   outputChannel?.appendLine(`[${new Date().toISOString()}] ${message}`);
 }
 
-function emptyUsage(): ClaudeCodeUsage {
-  return { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
+export function emptyUsage(): TokenUsage {
+  return { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, reasoningTokens: 0 };
 }
 
-function addUsage(target: ClaudeCodeUsage, source: ClaudeCodeUsage): void {
+export function addUsage(target: TokenUsage, source: TokenUsage): void {
   target.inputTokens += source.inputTokens;
   target.outputTokens += source.outputTokens;
   target.cacheCreationTokens += source.cacheCreationTokens;
   target.cacheReadTokens += source.cacheReadTokens;
+  target.reasoningTokens += source.reasoningTokens;
+}
+
+export function emptySummary(): UsageSummary {
+  return { sessions: [], totalUsage: emptyUsage(), totalResponses: 0, byModel: {}, dailyUsage: [] };
 }
 
 /**
@@ -41,9 +46,8 @@ function workspacePathToClaudeDir(workspacePath: string): string {
 
 /**
  * Find the Claude Code projects directory for the current workspace.
- * Returns undefined if not found.
  */
-function findClaudeProjectDir(workspacePath: string): string | undefined {
+export function findClaudeProjectDir(workspacePath: string): string | undefined {
   const claudeDir = workspacePathToClaudeDir(workspacePath);
   const fullPath = path.join(os.homedir(), '.claude', 'projects', claudeDir);
 
@@ -58,7 +62,7 @@ function findClaudeProjectDir(workspacePath: string): string | undefined {
 /**
  * Parse a single JSONL line and extract Claude Code response data if present.
  */
-function parseJsonlLine(line: string): { sessionId: string; response: ClaudeCodeResponse } | undefined {
+function parseJsonlLine(line: string): { sessionId: string; response: TokenResponse } | undefined {
   try {
     const obj = JSON.parse(line);
 
@@ -71,11 +75,12 @@ function parseJsonlLine(line: string): { sessionId: string; response: ClaudeCode
       return undefined;
     }
 
-    const usage: ClaudeCodeUsage = {
+    const usage: TokenUsage = {
       inputTokens: msg.usage.input_tokens ?? 0,
       outputTokens: msg.usage.output_tokens ?? 0,
       cacheCreationTokens: msg.usage.cache_creation_input_tokens ?? 0,
       cacheReadTokens: msg.usage.cache_read_input_tokens ?? 0,
+      reasoningTokens: 0,
     };
 
     const timestamp = obj.timestamp ? new Date(obj.timestamp).getTime() : 0;
@@ -97,10 +102,10 @@ function parseJsonlLine(line: string): { sessionId: string; response: ClaudeCode
 /**
  * Parse all JSONL files in a Claude Code project directory.
  */
-function parseProjectDir(dirPath: string): ClaudeCodeSummary {
-  const sessions: Map<string, ClaudeCodeSession> = new Map();
-  const byModel: Record<string, ClaudeCodeUsage & { count: number }> = {};
-  const dailyMap: Map<string, { usage: ClaudeCodeUsage; responseCount: number }> = new Map();
+export function parseClaudeProjectDir(dirPath: string): UsageSummary {
+  const sessions: Map<string, TokenSession> = new Map();
+  const byModel: Record<string, TokenUsage & { count: number }> = {};
+  const dailyMap: Map<string, { usage: TokenUsage; responseCount: number }> = new Map();
   const totalUsage = emptyUsage();
   let totalResponses = 0;
 
@@ -109,10 +114,10 @@ function parseProjectDir(dirPath: string): ClaudeCodeSummary {
     files = fs.readdirSync(dirPath).filter(f => f.endsWith('.jsonl'));
   } catch (e) {
     log(`Failed to read directory ${dirPath}: ${(e as Error).message}`);
-    return { sessions: [], totalUsage, totalResponses: 0, byModel: {}, dailyUsage: [] };
+    return emptySummary();
   }
 
-  log(`Parsing ${files.length} JSONL files from ${dirPath}`);
+  log(`Parsing ${files.length} Claude Code JSONL files from ${dirPath}`);
 
   for (const file of files) {
     const filePath = path.join(dirPath, file);
@@ -137,6 +142,7 @@ function parseProjectDir(dirPath: string): ClaudeCodeSummary {
       if (!session) {
         session = {
           sessionId,
+          provider: 'claude-code',
           responses: [],
           totalUsage: emptyUsage(),
           firstTimestamp: response.timestamp,
@@ -182,88 +188,7 @@ function parseProjectDir(dirPath: string): ClaudeCodeSummary {
     .map(([date, data]) => ({ date, usage: data.usage, responseCount: data.responseCount }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  log(`Parsed ${totalResponses} responses across ${sessions.size} sessions`);
+  log(`Parsed ${totalResponses} Claude Code responses across ${sessions.size} sessions`);
 
   return { sessions: sortedSessions, totalUsage, totalResponses, byModel, dailyUsage };
-}
-
-/**
- * Main tracker class that provides Claude Code usage data for the current workspace.
- */
-export class ClaudeCodeTracker implements vscode.Disposable {
-  private _onDidChange = new vscode.EventEmitter<void>();
-  readonly onDidChange = this._onDidChange.event;
-
-  private disposables: vscode.Disposable[] = [];
-  private projectDir: string | undefined;
-  private cachedSummary: ClaudeCodeSummary | undefined;
-
-  constructor() {
-    this.projectDir = this.resolveProjectDir();
-    this.setupWatcher();
-  }
-
-  private resolveProjectDir(): string | undefined {
-    const folders = vscode.workspace.workspaceFolders;
-    if (!folders || folders.length === 0) {
-      return undefined;
-    }
-    return findClaudeProjectDir(folders[0].uri.fsPath);
-  }
-
-  private setupWatcher(): void {
-    if (!this.projectDir) { return; }
-
-    const pattern = new vscode.RelativePattern(
-      vscode.Uri.file(this.projectDir),
-      '*.jsonl',
-    );
-
-    const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-    this.disposables.push(watcher);
-    this.disposables.push(watcher.onDidChange(() => this.invalidate()));
-    this.disposables.push(watcher.onDidCreate(() => this.invalidate()));
-    this.disposables.push(watcher.onDidDelete(() => this.invalidate()));
-  }
-
-  private invalidate(): void {
-    this.cachedSummary = undefined;
-    this._onDidChange.fire();
-  }
-
-  getSummary(): ClaudeCodeSummary {
-    if (this.cachedSummary) {
-      return this.cachedSummary;
-    }
-
-    if (!this.projectDir) {
-      this.cachedSummary = {
-        sessions: [],
-        totalUsage: emptyUsage(),
-        totalResponses: 0,
-        byModel: {},
-        dailyUsage: [],
-      };
-    } else {
-      this.cachedSummary = parseProjectDir(this.projectDir);
-    }
-
-    return this.cachedSummary;
-  }
-
-  hasProjectDir(): boolean {
-    return this.projectDir !== undefined;
-  }
-
-  getProjectDirPath(): string | undefined {
-    return this.projectDir;
-  }
-
-  dispose(): void {
-    for (const d of this.disposables) {
-      d.dispose();
-    }
-    this.disposables = [];
-    this._onDidChange.dispose();
-  }
 }

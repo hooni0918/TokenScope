@@ -1,37 +1,41 @@
-/** Claude Code auto-tracking types */
+/** Provider-agnostic token usage tracking types */
 
-export interface ClaudeCodeUsage {
+export type Provider = 'claude-code' | 'codex-cli';
+
+export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
-  cacheCreationTokens: number;
-  cacheReadTokens: number;
+  cacheCreationTokens: number; // Claude: cache_creation_input_tokens, Codex: 0
+  cacheReadTokens: number;     // Claude: cache_read_input_tokens, Codex: cached_input_tokens
+  reasoningTokens: number;     // Claude: 0, Codex: reasoning_output_tokens (subset of output)
 }
 
-export interface ClaudeCodeResponse {
+export interface TokenResponse {
   model: string;
-  usage: ClaudeCodeUsage;
+  usage: TokenUsage;
   timestamp: number;
 }
 
-export interface ClaudeCodeSession {
+export interface TokenSession {
   sessionId: string;
-  responses: ClaudeCodeResponse[];
-  totalUsage: ClaudeCodeUsage;
+  provider: Provider;
+  responses: TokenResponse[];
+  totalUsage: TokenUsage;
   firstTimestamp: number;
   lastTimestamp: number;
 }
 
-export interface ClaudeCodeSummary {
-  sessions: ClaudeCodeSession[];
-  totalUsage: ClaudeCodeUsage;
+export interface UsageSummary {
+  sessions: TokenSession[];
+  totalUsage: TokenUsage;
   totalResponses: number;
-  byModel: Record<string, ClaudeCodeUsage & { count: number }>;
+  byModel: Record<string, TokenUsage & { count: number }>;
   dailyUsage: DailyUsage[];
 }
 
 export interface DailyUsage {
   date: string; // YYYY-MM-DD
-  usage: ClaudeCodeUsage;
+  usage: TokenUsage;
   responseCount: number;
 }
 
