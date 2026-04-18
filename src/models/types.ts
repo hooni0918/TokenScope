@@ -1,29 +1,3 @@
-export type LLMProvider = 'anthropic' | 'openai' | 'gemini';
-
-export interface TokenUsageEntry {
-  id: string;
-  provider: LLMProvider;
-  model: string;
-  inputTokens: number;
-  outputTokens: number;
-  timestamp: number;
-  note?: string;
-}
-
-export interface UsageSummary {
-  totalInputTokens: number;
-  totalOutputTokens: number;
-  totalTokens: number;
-  byProvider: Record<LLMProvider, ProviderSummary>;
-  entryCount: number;
-}
-
-export interface ProviderSummary {
-  inputTokens: number;
-  outputTokens: number;
-  entryCount: number;
-}
-
 /** Claude Code auto-tracking types */
 
 export interface ClaudeCodeUsage {
@@ -52,4 +26,18 @@ export interface ClaudeCodeSummary {
   totalUsage: ClaudeCodeUsage;
   totalResponses: number;
   byModel: Record<string, ClaudeCodeUsage & { count: number }>;
+  dailyUsage: DailyUsage[];
+}
+
+export interface DailyUsage {
+  date: string; // YYYY-MM-DD
+  usage: ClaudeCodeUsage;
+  responseCount: number;
+}
+
+export interface ModelPricing {
+  inputPerMillion: number;
+  outputPerMillion: number;
+  cacheWritePerMillion: number;
+  cacheReadPerMillion: number;
 }

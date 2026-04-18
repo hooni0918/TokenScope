@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ClaudeCodeTracker } from '../tracking/claudeCodeParser';
-import { formatTokenCount } from '../utils/formatting';
+import { formatTokenCount, formatCost } from '../utils/formatting';
+import { calculateTotalCost } from '../utils/pricing';
 
 export class StatusBarManager implements vscode.Disposable {
   private item: vscode.StatusBarItem;
@@ -22,15 +23,22 @@ export class StatusBarManager implements vscode.Disposable {
     const u = summary.totalUsage;
     const total = u.inputTokens + u.outputTokens + u.cacheCreationTokens + u.cacheReadTokens;
 
-    this.item.text = `$(hubot) ${formatTokenCount(total)} tokens`;
+    const showCost = vscode.workspace.getConfiguration('tokenScope').get<boolean>('showCostEstimate', true);
+    const { totalCost } = calculateTotalCost(summary.byModel);
+    const costStr = showCost && totalCost > 0 ? ` · ${formatCost(totalCost)}` : '';
+
+    this.item.text = `$(hubot) ${formatTokenCount(total)} tokens${costStr}`;
     this.item.tooltip = [
       'TokenScope — Claude Code Usage',
+      '',
       `Input: ${formatTokenCount(u.inputTokens)}`,
       `Output: ${formatTokenCount(u.outputTokens)}`,
       `Cache Write: ${formatTokenCount(u.cacheCreationTokens)}`,
       `Cache Read: ${formatTokenCount(u.cacheReadTokens)}`,
+      '',
       `Sessions: ${summary.sessions.length}`,
       `Responses: ${summary.totalResponses}`,
+      ...(showCost && totalCost > 0 ? ['', `Est. Cost: ${formatCost(totalCost)}`] : []),
       '',
       'Click to open dashboard',
     ].join('\n');

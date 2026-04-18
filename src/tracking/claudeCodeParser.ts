@@ -7,7 +7,18 @@ import {
   ClaudeCodeResponse,
   ClaudeCodeSession,
   ClaudeCodeSummary,
+  DailyUsage,
 } from '../models/types';
+
+let outputChannel: vscode.OutputChannel | undefined;
+
+export function setOutputChannel(channel: vscode.OutputChannel): void {
+  outputChannel = channel;
+}
+
+function log(message: string): void {
+  outputChannel?.appendLine(`[${new Date().toISOString()}] ${message}`);
+}
 
 function emptyUsage(): ClaudeCodeUsage {
   return { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0 };
@@ -37,8 +48,10 @@ function findClaudeProjectDir(workspacePath: string): string | undefined {
   const fullPath = path.join(os.homedir(), '.claude', 'projects', claudeDir);
 
   if (fs.existsSync(fullPath)) {
+    log(`Found Claude Code project directory: ${fullPath}`);
     return fullPath;
   }
+  log(`Claude Code project directory not found: ${fullPath}`);
   return undefined;
 }
 
@@ -75,7 +88,8 @@ function parseJsonlLine(line: string): { sessionId: string; response: ClaudeCode
         timestamp,
       },
     };
-  } catch {
+  } catch (e) {
+    log(`Failed to parse JSONL line: ${(e as Error).message}`);
     return undefined;
   }
 }
@@ -86,26 +100,31 @@ function parseJsonlLine(line: string): { sessionId: string; response: ClaudeCode
 function parseProjectDir(dirPath: string): ClaudeCodeSummary {
   const sessions: Map<string, ClaudeCodeSession> = new Map();
   const byModel: Record<string, ClaudeCodeUsage & { count: number }> = {};
+  const dailyMap: Map<string, { usage: ClaudeCodeUsage; responseCount: number }> = new Map();
   const totalUsage = emptyUsage();
   let totalResponses = 0;
 
   let files: string[];
   try {
     files = fs.readdirSync(dirPath).filter(f => f.endsWith('.jsonl'));
-  } catch {
-    return { sessions: [], totalUsage, totalResponses: 0, byModel: {} };
+  } catch (e) {
+    log(`Failed to read directory ${dirPath}: ${(e as Error).message}`);
+    return { sessions: [], totalUsage, totalResponses: 0, byModel: {}, dailyUsage: [] };
   }
+
+  log(`Parsing ${files.length} JSONL files from ${dirPath}`);
 
   for (const file of files) {
     const filePath = path.join(dirPath, file);
     let content: string;
     try {
       content = fs.readFileSync(filePath, 'utf-8');
-    } catch {
+    } catch (e) {
+      log(`Failed to read file ${filePath}: ${(e as Error).message}`);
       continue;
     }
 
-    for (const line of content.split('\n')) {
+    for (const line of content.split(/\r?\n/)) {
       if (!line.trim()) { continue; }
 
       const parsed = parseJsonlLine(line);
@@ -138,6 +157,18 @@ function parseProjectDir(dirPath: string): ClaudeCodeSummary {
       addUsage(byModel[response.model], response.usage);
       byModel[response.model].count += 1;
 
+      // Aggregate by day
+      if (response.timestamp > 0) {
+        const dateKey = new Date(response.timestamp).toISOString().slice(0, 10);
+        let daily = dailyMap.get(dateKey);
+        if (!daily) {
+          daily = { usage: emptyUsage(), responseCount: 0 };
+          dailyMap.set(dateKey, daily);
+        }
+        addUsage(daily.usage, response.usage);
+        daily.responseCount += 1;
+      }
+
       // Aggregate totals
       addUsage(totalUsage, response.usage);
       totalResponses += 1;
@@ -147,7 +178,13 @@ function parseProjectDir(dirPath: string): ClaudeCodeSummary {
   const sortedSessions = Array.from(sessions.values())
     .sort((a, b) => b.lastTimestamp - a.lastTimestamp);
 
-  return { sessions: sortedSessions, totalUsage, totalResponses, byModel };
+  const dailyUsage: DailyUsage[] = Array.from(dailyMap.entries())
+    .map(([date, data]) => ({ date, usage: data.usage, responseCount: data.responseCount }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  log(`Parsed ${totalResponses} responses across ${sessions.size} sessions`);
+
+  return { sessions: sortedSessions, totalUsage, totalResponses, byModel, dailyUsage };
 }
 
 /**
@@ -157,7 +194,7 @@ export class ClaudeCodeTracker implements vscode.Disposable {
   private _onDidChange = new vscode.EventEmitter<void>();
   readonly onDidChange = this._onDidChange.event;
 
-  private watcher: vscode.FileSystemWatcher | undefined;
+  private disposables: vscode.Disposable[] = [];
   private projectDir: string | undefined;
   private cachedSummary: ClaudeCodeSummary | undefined;
 
@@ -182,10 +219,11 @@ export class ClaudeCodeTracker implements vscode.Disposable {
       '*.jsonl',
     );
 
-    this.watcher = vscode.workspace.createFileSystemWatcher(pattern);
-    this.watcher.onDidChange(() => this.invalidate());
-    this.watcher.onDidCreate(() => this.invalidate());
-    this.watcher.onDidDelete(() => this.invalidate());
+    const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+    this.disposables.push(watcher);
+    this.disposables.push(watcher.onDidChange(() => this.invalidate()));
+    this.disposables.push(watcher.onDidCreate(() => this.invalidate()));
+    this.disposables.push(watcher.onDidDelete(() => this.invalidate()));
   }
 
   private invalidate(): void {
@@ -204,6 +242,7 @@ export class ClaudeCodeTracker implements vscode.Disposable {
         totalUsage: emptyUsage(),
         totalResponses: 0,
         byModel: {},
+        dailyUsage: [],
       };
     } else {
       this.cachedSummary = parseProjectDir(this.projectDir);
@@ -221,7 +260,10 @@ export class ClaudeCodeTracker implements vscode.Disposable {
   }
 
   dispose(): void {
-    this.watcher?.dispose();
+    for (const d of this.disposables) {
+      d.dispose();
+    }
+    this.disposables = [];
     this._onDidChange.dispose();
   }
 }

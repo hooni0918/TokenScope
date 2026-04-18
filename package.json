@@ -2,13 +2,18 @@
   "name": "tokenscope",
   "displayName": "TokenScope",
   "description": "Auto-track Claude Code token usage per project. See how many tokens you've spent with Claude Code on each workspace.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "hooni0918",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/hooni0918/TokenScope"
   },
   "icon": "resources/icon.png",
+  "galleryBanner": {
+    "color": "#1a1a2e",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -22,6 +27,7 @@
     "token",
     "usage",
     "tracking",
+    "cost",
     "LLM",
     "anthropic"
   ],
@@ -34,6 +40,11 @@
       {
         "command": "tokenScope.showDashboard",
         "title": "Show Token Dashboard",
+        "category": "TokenScope"
+      },
+      {
+        "command": "tokenScope.exportCsv",
+        "title": "Export Usage to CSV",
         "category": "TokenScope"
       }
     ],
@@ -53,13 +64,29 @@
           "name": "Token Usage"
         }
       ]
+    },
+    "configuration": {
+      "title": "TokenScope",
+      "properties": {
+        "tokenScope.sessionLimit": {
+          "type": "number",
+          "default": 50,
+          "minimum": 5,
+          "maximum": 500,
+          "description": "Maximum number of sessions to display in the tree view and dashboard."
+        },
+        "tokenScope.showCostEstimate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show estimated cost based on Claude model pricing."
+        }
+      }
     }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts",
     "package": "vsce package"
   },
   "devDependencies": {

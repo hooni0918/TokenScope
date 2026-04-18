@@ -9,7 +9,7 @@ export function formatTokenCount(count: number): string {
 }
 
 export function formatDate(timestamp: number): string {
-  return new Date(timestamp).toLocaleDateString('ko-KR', {
+  return new Date(timestamp).toLocaleString(undefined, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -18,11 +18,9 @@ export function formatDate(timestamp: number): string {
   });
 }
 
-export function providerDisplayName(provider: string): string {
-  const names: Record<string, string> = {
-    anthropic: 'Anthropic (Claude)',
-    openai: 'OpenAI',
-    gemini: 'Google Gemini',
-  };
-  return names[provider] ?? provider;
+export function formatCost(cost: number): string {
+  if (cost < 0.01) {
+    return `$${cost.toFixed(4)}`;
+  }
+  return `$${cost.toFixed(2)}`;
 }

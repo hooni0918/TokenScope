@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { ClaudeCodeTracker } from '../tracking/claudeCodeParser';
 import { ClaudeCodeSession } from '../models/types';
-import { formatTokenCount } from '../utils/formatting';
+import { formatTokenCount, formatDate, formatCost } from '../utils/formatting';
+import { getModelPricing, calculateCost } from '../utils/pricing';
 
 type TreeElement = RootNode | SessionNode | DetailNode;
 
@@ -50,11 +51,9 @@ export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       const s = element.session;
       const u = s.totalUsage;
       const total = u.inputTokens + u.outputTokens + u.cacheCreationTokens + u.cacheReadTokens;
-      const date = new Date(s.lastTimestamp);
-      const dateStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
 
       const item = new vscode.TreeItem(
-        dateStr,
+        formatDate(s.lastTimestamp),
         vscode.TreeItemCollapsibleState.Collapsed,
       );
       item.description = `${formatTokenCount(total)} tokens · ${s.responses.length} responses`;
@@ -94,34 +93,66 @@ export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     }
 
     const summary = this.tracker.getSummary();
+    const showCost = vscode.workspace.getConfiguration('tokenScope').get<boolean>('showCostEstimate', true);
 
     if (element.kind === 'root' && element.label === 'By Model') {
       return Object.entries(summary.byModel).map(([model, data]) => {
         const total = data.inputTokens + data.outputTokens + data.cacheCreationTokens + data.cacheReadTokens;
+        let costStr = '';
+        if (showCost) {
+          const pricing = getModelPricing(model);
+          if (pricing) {
+            costStr = ` · ${formatCost(calculateCost(data, pricing))}`;
+          }
+        }
         return {
           kind: 'detail' as const,
           label: model,
-          value: `${formatTokenCount(total)} · ${data.count} calls`,
+          value: `${formatTokenCount(total)} · ${data.count} calls${costStr}`,
         };
       });
     }
 
     if (element.kind === 'root' && element.label === 'Sessions') {
-      return summary.sessions.slice(0, 20).map(s => ({
+      const sessionLimit = vscode.workspace.getConfiguration('tokenScope').get<number>('sessionLimit', 50);
+      const limited = summary.sessions.slice(0, sessionLimit);
+      const remaining = summary.sessions.length - limited.length;
+      const result: TreeElement[] = limited.map(s => ({
         kind: 'session' as const,
         session: s,
       }));
+      if (remaining > 0) {
+        result.push({
+          kind: 'detail' as const,
+          label: `+${remaining} more sessions`,
+          value: 'Adjust tokenScope.sessionLimit in settings',
+        });
+      }
+      return result;
     }
 
     if (element.kind === 'session') {
       const u = element.session.totalUsage;
-      return [
+      const details: TreeElement[] = [
         { kind: 'detail' as const, label: 'Input', value: formatTokenCount(u.inputTokens) },
         { kind: 'detail' as const, label: 'Output', value: formatTokenCount(u.outputTokens) },
         { kind: 'detail' as const, label: 'Cache Write', value: formatTokenCount(u.cacheCreationTokens) },
         { kind: 'detail' as const, label: 'Cache Read', value: formatTokenCount(u.cacheReadTokens) },
         { kind: 'detail' as const, label: 'Responses', value: `${element.session.responses.length}` },
       ];
+      if (showCost) {
+        let sessionCost = 0;
+        for (const r of element.session.responses) {
+          const pricing = getModelPricing(r.model);
+          if (pricing) {
+            sessionCost += calculateCost(r.usage, pricing);
+          }
+        }
+        if (sessionCost > 0) {
+          details.push({ kind: 'detail' as const, label: 'Est. Cost', value: formatCost(sessionCost) });
+        }
+      }
+      return details;
     }
 
     return [];

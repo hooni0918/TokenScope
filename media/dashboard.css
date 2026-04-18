@@ -3,10 +3,43 @@ body {
   color: var(--vscode-foreground);
   background-color: var(--vscode-editor-background);
   padding: 20px;
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
 }
 
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--vscode-widget-border);
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+.header h1 {
+  font-size: 1.6em;
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.export-btn {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 0.85em;
+  cursor: pointer;
+  font-family: var(--vscode-font-family);
+}
+
+.export-btn:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+/* Headings */
 h1 {
   font-size: 1.6em;
   margin-bottom: 20px;
@@ -20,9 +53,10 @@ h2 {
   margin-bottom: 12px;
 }
 
+/* Summary cards */
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
   margin-bottom: 20px;
 }
@@ -33,6 +67,10 @@ h2 {
   border-radius: 6px;
   padding: 16px;
   text-align: center;
+}
+
+.card-cost {
+  border-color: var(--vscode-charts-green, #10a37f);
 }
 
 .card-label {
@@ -47,6 +85,7 @@ h2 {
   color: var(--vscode-foreground);
 }
 
+/* Bar chart */
 .chart-container {
   display: flex;
   flex-direction: column;
@@ -60,10 +99,13 @@ h2 {
 }
 
 .bar-label {
-  width: 140px;
-  font-size: 0.9em;
+  width: 160px;
+  font-size: 0.85em;
   text-align: right;
   flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .bar-track {
@@ -80,30 +122,72 @@ h2 {
   transition: width 0.3s ease;
 }
 
-.provider-anthropic {
-  background-color: #d97706;
-}
-
-.provider-openai {
-  background-color: #10a37f;
-}
-
-.provider-gemini {
-  background-color: #4285f4;
-}
-
 .bar-value {
-  width: 70px;
-  font-size: 0.9em;
+  min-width: 80px;
+  font-size: 0.85em;
   text-align: right;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
+/* Daily trend chart */
+.trend-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 180px;
+  padding: 10px 0;
+}
+
+.trend-bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+}
+
+.trend-value {
+  font-size: 0.65em;
+  color: var(--vscode-descriptionForeground);
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
+
+.trend-bar-track {
+  flex: 1;
+  width: 100%;
+  max-width: 40px;
+  display: flex;
+  align-items: flex-end;
+  background: var(--vscode-editor-inactiveSelectionBackground);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.trend-bar-fill {
+  width: 100%;
+  background: var(--vscode-charts-blue, #4285f4);
+  border-radius: 3px;
+  min-height: 2px;
+  transition: height 0.3s ease;
+}
+
+.trend-date {
+  font-size: 0.65em;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+/* Session table */
 .entries-table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 8px;
-  font-size: 0.9em;
+  font-size: 0.85em;
+  table-layout: fixed;
 }
 
 .entries-table th,
@@ -111,6 +195,9 @@ h2 {
   padding: 8px 10px;
   text-align: left;
   border-bottom: 1px solid var(--vscode-widget-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .entries-table th {
@@ -122,9 +209,18 @@ h2 {
   background: var(--vscode-list-hoverBackground);
 }
 
+/* Utility */
 .empty {
   text-align: center;
   color: var(--vscode-descriptionForeground);
-  padding: 24px;
+  padding: 40px 24px;
+  font-style: italic;
+  line-height: 1.6;
+}
+
+.note {
+  font-size: 0.8em;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 8px;
   font-style: italic;
 }

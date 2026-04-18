@@ -1,8 +1,12 @@
 .vscode/**
 .vscode-test/**
+.git/**
 src/**
 .gitignore
 tsconfig.json
+package-lock.json
 **/*.map
 **/*.ts
+!**/*.d.ts
 node_modules/**
+te.dart
