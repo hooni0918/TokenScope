@@ -1,8 +1,8 @@
 {
   "name": "tokenscope",
   "displayName": "TokenScope",
-  "description": "Auto-track Claude Code token usage per project. See how many tokens you've spent with Claude Code on each workspace.",
-  "version": "0.3.0",
+  "description": "Auto-track AI coding tool token usage per project. Supports Claude Code and OpenAI Codex CLI. See how many tokens you've spent on each workspace.",
+  "version": "0.4.0",
   "publisher": "hooni",
   "license": "MIT",
   "repository": {
@@ -24,6 +24,8 @@
   "keywords": [
     "claude",
     "claude code",
+    "codex",
+    "openai",
     "token",
     "usage",
     "tracking",

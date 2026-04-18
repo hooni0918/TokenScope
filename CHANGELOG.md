@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0
+
+### New Features
+- **OpenAI Codex CLI support** — TokenScope now tracks token usage from Codex CLI (`~/.codex/sessions/`) in addition to Claude Code
+- **Multi-provider architecture** — unified tracker merges data from all supported tools into a single view
+- **OpenAI model pricing** — cost estimation for Codex Mini, o4-mini, o3, o3-mini, GPT-4.1, GPT-4.1 Mini, GPT-4.1 Nano, GPT-4o, GPT-4o Mini
+- **Reasoning token tracking** — displays reasoning tokens separately for OpenAI o-series models
+- **Provider tags** — sessions in tree view, dashboard table, and CSV export now show which tool (Claude Code / Codex CLI) generated them
+
+### Improvements
+- Refactored type system from Claude-specific to provider-agnostic (`TokenUsage`, `TokenSession`, `UsageSummary`)
+- Dashboard shows "Tracking: Claude Code, Codex CLI" indicator
+- CSV export includes Provider column
+- Status bar tooltip shows reasoning tokens when present
+- Tree view session details include Provider row
+
 ## 0.3.0
 
 ### New Features
