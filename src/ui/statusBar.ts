@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ClaudeCodeTracker } from '../tracking/claudeCodeParser';
+import { UsageTracker } from '../tracking/tracker';
 import { formatTokenCount, formatCost } from '../utils/formatting';
 import { calculateTotalCost } from '../utils/pricing';
 
@@ -7,7 +7,7 @@ export class StatusBarManager implements vscode.Disposable {
   private item: vscode.StatusBarItem;
   private changeListener: vscode.Disposable;
 
-  constructor(private tracker: ClaudeCodeTracker) {
+  constructor(private tracker: UsageTracker) {
     this.item = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right,
       100,
@@ -29,12 +29,13 @@ export class StatusBarManager implements vscode.Disposable {
 
     this.item.text = `$(hubot) ${formatTokenCount(total)} tokens${costStr}`;
     this.item.tooltip = [
-      'TokenScope — Claude Code Usage',
+      'TokenScope — AI Token Usage',
       '',
       `Input: ${formatTokenCount(u.inputTokens)}`,
       `Output: ${formatTokenCount(u.outputTokens)}`,
       `Cache Write: ${formatTokenCount(u.cacheCreationTokens)}`,
       `Cache Read: ${formatTokenCount(u.cacheReadTokens)}`,
+      ...(u.reasoningTokens > 0 ? [`Reasoning: ${formatTokenCount(u.reasoningTokens)}`] : []),
       '',
       `Sessions: ${summary.sessions.length}`,
       `Responses: ${summary.totalResponses}`,

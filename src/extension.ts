@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
-import { ClaudeCodeTracker, setOutputChannel } from './tracking/claudeCodeParser';
+import { setOutputChannel } from './tracking/claudeCodeParser';
+import { setCodexOutputChannel } from './tracking/codexParser';
+import { UsageTracker } from './tracking/tracker';
 import { StatusBarManager } from './ui/statusBar';
 import { UsageTreeProvider } from './ui/treeView';
 import { registerShowDashboardCommand } from './commands/showDashboard';
@@ -9,9 +11,10 @@ export function activate(context: vscode.ExtensionContext) {
   const outputChannel = vscode.window.createOutputChannel('TokenScope');
   context.subscriptions.push(outputChannel);
   setOutputChannel(outputChannel);
+  setCodexOutputChannel(outputChannel);
 
   try {
-    const tracker = new ClaudeCodeTracker();
+    const tracker = new UsageTracker();
 
     const statusBar = new StatusBarManager(tracker);
     const treeProvider = new UsageTreeProvider(tracker);

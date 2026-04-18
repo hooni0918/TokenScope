@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ClaudeCodeTracker } from '../tracking/claudeCodeParser';
+import { UsageTracker } from '../tracking/tracker';
 import { formatTokenCount, formatDate, formatCost } from '../utils/formatting';
 import { calculateTotalCost, getModelPricing, calculateCost } from '../utils/pricing';
 
@@ -12,9 +12,14 @@ function getNonce(): string {
   return nonce;
 }
 
+const PROVIDER_LABEL: Record<string, string> = {
+  'claude-code': 'Claude Code',
+  'codex-cli': 'Codex CLI',
+};
+
 export function createDashboardPanel(
   context: vscode.ExtensionContext,
-  tracker: ClaudeCodeTracker,
+  tracker: UsageTracker,
 ): vscode.WebviewPanel {
   const panel = vscode.window.createWebviewPanel(
     'tokenScopeDashboard',
@@ -69,7 +74,11 @@ export function createDashboardPanel(
         }), 1)
       : 1;
 
-    const hasData = tracker.hasProjectDir() && summary.totalResponses > 0;
+    // Detect which providers have data
+    const providers = new Set(summary.sessions.map(s => s.provider));
+    const providerNames = Array.from(providers).map(p => PROVIDER_LABEL[p] ?? p);
+
+    const hasData = tracker.hasDataSources() && summary.totalResponses > 0;
 
     panel.webview.html = /* html */ `<!DOCTYPE html>
 <html lang="en">
@@ -86,11 +95,12 @@ export function createDashboardPanel(
     <h1>TokenScope</h1>
     ${hasData ? '<button class="export-btn" id="exportBtn">Export CSV</button>' : ''}
   </div>
-  ${!tracker.hasProjectDir()
-    ? '<p class="empty">No Claude Code data found for this workspace.<br>Use Claude Code in this project to start tracking.</p>'
+  ${!tracker.hasDataSources()
+    ? '<p class="empty">No AI coding tool data found for this workspace.<br>Use Claude Code or Codex CLI in this project to start tracking.</p>'
     : summary.totalResponses === 0
-    ? '<p class="empty">No usage data yet.<br>Use Claude Code in this project to start tracking.</p>'
+    ? '<p class="empty">No usage data yet.<br>Use Claude Code or Codex CLI in this project to start tracking.</p>'
     : `
+  ${providerNames.length > 0 ? `<p class="note" style="margin-top:0">Tracking: ${providerNames.join(', ')}</p>` : ''}
   <div class="summary-cards">
     <div class="card">
       <div class="card-label">Total Tokens</div>
@@ -112,6 +122,11 @@ export function createDashboardPanel(
       <div class="card-label">Cache Read</div>
       <div class="card-value">${formatTokenCount(u.cacheReadTokens)}</div>
     </div>
+    ${u.reasoningTokens > 0 ? `
+    <div class="card">
+      <div class="card-label">Reasoning</div>
+      <div class="card-value">${formatTokenCount(u.reasoningTokens)}</div>
+    </div>` : ''}
     <div class="card">
       <div class="card-label">Sessions</div>
       <div class="card-value">${summary.sessions.length}</div>
@@ -171,21 +186,23 @@ export function createDashboardPanel(
     <thead>
       <tr>
         <th>Date</th>
+        <th>Provider</th>
         <th>Responses</th>
         <th>Input</th>
         <th>Output</th>
-        <th>Cache Write</th>
-        <th>Cache Read</th>
+        <th>Cache W</th>
+        <th>Cache R</th>
         <th>Total</th>
         ${showCost ? '<th>Est. Cost</th>' : ''}
       </tr>
     </thead>
     <tbody>
       ${recentSessions.length === 0
-        ? `<tr><td colspan="${showCost ? 8 : 7}" class="empty">No sessions yet.</td></tr>`
+        ? `<tr><td colspan="${showCost ? 9 : 8}" class="empty">No sessions yet.</td></tr>`
         : recentSessions.map(s => {
           const su = s.totalUsage;
           const st = su.inputTokens + su.outputTokens + su.cacheCreationTokens + su.cacheReadTokens;
+          const providerTag = PROVIDER_LABEL[s.provider] ?? s.provider;
           let sessionCost = 0;
           if (showCost) {
             for (const r of s.responses) {
@@ -196,6 +213,7 @@ export function createDashboardPanel(
           return `
         <tr>
           <td>${formatDate(s.lastTimestamp)}</td>
+          <td>${providerTag}</td>
           <td>${s.responses.length}</td>
           <td>${formatTokenCount(su.inputTokens)}</td>
           <td>${formatTokenCount(su.outputTokens)}</td>

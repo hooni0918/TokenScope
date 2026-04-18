@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
-import { ClaudeCodeTracker } from '../tracking/claudeCodeParser';
+import { UsageTracker } from '../tracking/tracker';
 import { createDashboardPanel } from '../ui/dashboard';
 
 let currentPanel: vscode.WebviewPanel | undefined;
 
 export function registerShowDashboardCommand(
   context: vscode.ExtensionContext,
-  tracker: ClaudeCodeTracker,
+  tracker: UsageTracker,
 ): void {
   const disposable = vscode.commands.registerCommand(
     'tokenScope.showDashboard',

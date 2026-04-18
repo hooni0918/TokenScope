@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { ClaudeCodeTracker } from '../tracking/claudeCodeParser';
-import { ClaudeCodeSession } from '../models/types';
+import { UsageTracker } from '../tracking/tracker';
+import { TokenSession } from '../models/types';
 import { formatTokenCount, formatDate, formatCost } from '../utils/formatting';
 import { getModelPricing, calculateCost } from '../utils/pricing';
 
@@ -13,7 +13,7 @@ interface RootNode {
 
 interface SessionNode {
   kind: 'session';
-  session: ClaudeCodeSession;
+  session: TokenSession;
 }
 
 interface DetailNode {
@@ -22,13 +22,18 @@ interface DetailNode {
   value: string;
 }
 
+const PROVIDER_LABEL: Record<string, string> = {
+  'claude-code': 'Claude Code',
+  'codex-cli': 'Codex CLI',
+};
+
 export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private _onDidChangeTreeData = new vscode.EventEmitter<TreeElement | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private changeListener: vscode.Disposable;
 
-  constructor(private tracker: ClaudeCodeTracker) {
+  constructor(private tracker: UsageTracker) {
     this.changeListener = tracker.onDidChange(() => this.refresh());
   }
 
@@ -51,12 +56,13 @@ export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       const s = element.session;
       const u = s.totalUsage;
       const total = u.inputTokens + u.outputTokens + u.cacheCreationTokens + u.cacheReadTokens;
+      const providerTag = PROVIDER_LABEL[s.provider] ?? s.provider;
 
       const item = new vscode.TreeItem(
         formatDate(s.lastTimestamp),
         vscode.TreeItemCollapsibleState.Collapsed,
       );
-      item.description = `${formatTokenCount(total)} tokens · ${s.responses.length} responses`;
+      item.description = `${formatTokenCount(total)} tokens · ${s.responses.length} responses · ${providerTag}`;
       item.iconPath = new vscode.ThemeIcon('comment-discussion');
       return item;
     }
@@ -69,11 +75,11 @@ export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
 
   getChildren(element?: TreeElement): TreeElement[] {
     if (!element) {
-      if (!this.tracker.hasProjectDir()) {
+      if (!this.tracker.hasDataSources()) {
         return [{
           kind: 'detail',
-          label: 'No Claude Code data found',
-          value: 'Open a project folder with Claude Code history',
+          label: 'No data found',
+          value: 'Use Claude Code or Codex CLI in this project first',
         }];
       }
 
@@ -82,7 +88,7 @@ export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
         return [{
           kind: 'detail',
           label: 'No usage data yet',
-          value: 'Use Claude Code in this project first',
+          value: 'Use Claude Code or Codex CLI in this project first',
         }];
       }
 
@@ -134,12 +140,16 @@ export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
     if (element.kind === 'session') {
       const u = element.session.totalUsage;
       const details: TreeElement[] = [
+        { kind: 'detail' as const, label: 'Provider', value: PROVIDER_LABEL[element.session.provider] ?? element.session.provider },
         { kind: 'detail' as const, label: 'Input', value: formatTokenCount(u.inputTokens) },
         { kind: 'detail' as const, label: 'Output', value: formatTokenCount(u.outputTokens) },
         { kind: 'detail' as const, label: 'Cache Write', value: formatTokenCount(u.cacheCreationTokens) },
         { kind: 'detail' as const, label: 'Cache Read', value: formatTokenCount(u.cacheReadTokens) },
-        { kind: 'detail' as const, label: 'Responses', value: `${element.session.responses.length}` },
       ];
+      if (u.reasoningTokens > 0) {
+        details.push({ kind: 'detail' as const, label: 'Reasoning', value: formatTokenCount(u.reasoningTokens) });
+      }
+      details.push({ kind: 'detail' as const, label: 'Responses', value: `${element.session.responses.length}` });
       if (showCost) {
         let sessionCost = 0;
         for (const r of element.session.responses) {

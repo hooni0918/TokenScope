@@ -1,10 +1,15 @@
 import * as vscode from 'vscode';
-import { ClaudeCodeTracker } from '../tracking/claudeCodeParser';
+import { UsageTracker } from '../tracking/tracker';
 import { getModelPricing, calculateCost } from '../utils/pricing';
+
+const PROVIDER_LABEL: Record<string, string> = {
+  'claude-code': 'Claude Code',
+  'codex-cli': 'Codex CLI',
+};
 
 export function registerExportCsvCommand(
   context: vscode.ExtensionContext,
-  tracker: ClaudeCodeTracker,
+  tracker: UsageTracker,
 ): void {
   const disposable = vscode.commands.registerCommand(
     'tokenScope.exportCsv',
@@ -22,7 +27,7 @@ export function registerExportCsvCommand(
       });
       if (!uri) { return; }
 
-      const rows = ['Session ID,Date,Responses,Input,Output,Cache Write,Cache Read,Total,Estimated Cost'];
+      const rows = ['Session ID,Provider,Date,Responses,Input,Output,Cache Write,Cache Read,Total,Estimated Cost'];
       for (const s of summary.sessions) {
         const u = s.totalUsage;
         const total = u.inputTokens + u.outputTokens + u.cacheCreationTokens + u.cacheReadTokens;
@@ -33,6 +38,7 @@ export function registerExportCsvCommand(
         }
         rows.push([
           s.sessionId,
+          PROVIDER_LABEL[s.provider] ?? s.provider,
           new Date(s.lastTimestamp).toISOString(),
           s.responses.length,
           u.inputTokens,
