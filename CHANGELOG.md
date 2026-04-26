@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0
+
+### New Features
+- **Session labeling** — tag any session with a custom name (e.g., `korean-skill`, `task-A`) via the tree view inline tag icon, right-click menu, or Command Palette
+- **Session comparison** — pick two sessions and view a side-by-side diff of every token type, response count, and estimated cost with absolute and percentage deltas
+- **Dashboard actions** — added **Label Session** and **Compare Sessions** buttons to the dashboard header
+- Tree view shows labels as `[label] date` with a tag icon
+- Dashboard session table shows a Label column when any session is labeled
+
+### Use Case
+Compare token cost between different prompts, skills, or approaches. Run task A in one session, label it, run task B in another, label it, then compare to see which uses fewer tokens.
+
 ## 0.4.0
 
 ### New Features

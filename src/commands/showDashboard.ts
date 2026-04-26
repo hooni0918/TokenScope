@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { UsageTracker } from '../tracking/tracker';
+import { SessionLabelStore } from '../labels/labelStore';
 import { createDashboardPanel } from '../ui/dashboard';
 
 let currentPanel: vscode.WebviewPanel | undefined;
@@ -7,6 +8,7 @@ let currentPanel: vscode.WebviewPanel | undefined;
 export function registerShowDashboardCommand(
   context: vscode.ExtensionContext,
   tracker: UsageTracker,
+  labelStore: SessionLabelStore,
 ): void {
   const disposable = vscode.commands.registerCommand(
     'tokenScope.showDashboard',
@@ -16,7 +18,7 @@ export function registerShowDashboardCommand(
         return;
       }
 
-      currentPanel = createDashboardPanel(context, tracker);
+      currentPanel = createDashboardPanel(context, tracker, labelStore);
 
       currentPanel.onDidDispose(() => {
         currentPanel = undefined;

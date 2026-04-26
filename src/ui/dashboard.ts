@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { UsageTracker } from '../tracking/tracker';
+import { SessionLabelStore } from '../labels/labelStore';
 import { formatTokenCount, formatDate, formatCost } from '../utils/formatting';
 import { calculateTotalCost, getModelPricing, calculateCost } from '../utils/pricing';
 
@@ -20,6 +21,7 @@ const PROVIDER_LABEL: Record<string, string> = {
 export function createDashboardPanel(
   context: vscode.ExtensionContext,
   tracker: UsageTracker,
+  labelStore: SessionLabelStore,
 ): vscode.WebviewPanel {
   const panel = vscode.window.createWebviewPanel(
     'tokenScopeDashboard',
@@ -40,6 +42,10 @@ export function createDashboardPanel(
     (message) => {
       if (message.command === 'exportCsv') {
         vscode.commands.executeCommand('tokenScope.exportCsv');
+      } else if (message.command === 'compareSessions') {
+        vscode.commands.executeCommand('tokenScope.compareSessions');
+      } else if (message.command === 'labelSession') {
+        vscode.commands.executeCommand('tokenScope.labelSession');
       }
     },
     undefined,
@@ -79,6 +85,8 @@ export function createDashboardPanel(
     const providerNames = Array.from(providers).map(p => PROVIDER_LABEL[p] ?? p);
 
     const hasData = tracker.hasDataSources() && summary.totalResponses > 0;
+    const hasAnyLabel = recentSessions.some(s => labelStore.getLabel(s.sessionId));
+    const tableColCount = (hasAnyLabel ? 1 : 0) + (showCost ? 9 : 8);
 
     panel.webview.html = /* html */ `<!DOCTYPE html>
 <html lang="en">
@@ -93,7 +101,12 @@ export function createDashboardPanel(
 <body>
   <div class="header">
     <h1>TokenScope</h1>
-    ${hasData ? '<button class="export-btn" id="exportBtn">Export CSV</button>' : ''}
+    ${hasData ? `
+      <div class="header-actions">
+        <button class="export-btn" id="labelBtn">Label Session</button>
+        <button class="export-btn" id="compareBtn">Compare Sessions</button>
+        <button class="export-btn" id="exportBtn">Export CSV</button>
+      </div>` : ''}
   </div>
   ${!tracker.hasDataSources()
     ? '<p class="empty">No AI coding tool data found for this workspace.<br>Use Claude Code or Codex CLI in this project to start tracking.</p>'
@@ -185,6 +198,7 @@ export function createDashboardPanel(
   <table class="entries-table">
     <thead>
       <tr>
+        ${hasAnyLabel ? '<th>Label</th>' : ''}
         <th>Date</th>
         <th>Provider</th>
         <th>Responses</th>
@@ -198,11 +212,12 @@ export function createDashboardPanel(
     </thead>
     <tbody>
       ${recentSessions.length === 0
-        ? `<tr><td colspan="${showCost ? 9 : 8}" class="empty">No sessions yet.</td></tr>`
+        ? `<tr><td colspan="${tableColCount}" class="empty">No sessions yet.</td></tr>`
         : recentSessions.map(s => {
           const su = s.totalUsage;
           const st = su.inputTokens + su.outputTokens + su.cacheCreationTokens + su.cacheReadTokens;
           const providerTag = PROVIDER_LABEL[s.provider] ?? s.provider;
+          const userLabel = labelStore.getLabel(s.sessionId);
           let sessionCost = 0;
           if (showCost) {
             for (const r of s.responses) {
@@ -212,6 +227,7 @@ export function createDashboardPanel(
           }
           return `
         <tr>
+          ${hasAnyLabel ? `<td>${userLabel ? `<span class="session-label">${userLabel}</span>` : ''}</td>` : ''}
           <td>${formatDate(s.lastTimestamp)}</td>
           <td>${providerTag}</td>
           <td>${s.responses.length}</td>
@@ -230,10 +246,22 @@ export function createDashboardPanel(
 
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
-    const btn = document.getElementById('exportBtn');
-    if (btn) {
-      btn.addEventListener('click', () => {
+    const exportBtn = document.getElementById('exportBtn');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
         vscode.postMessage({ command: 'exportCsv' });
+      });
+    }
+    const compareBtn = document.getElementById('compareBtn');
+    if (compareBtn) {
+      compareBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'compareSessions' });
+      });
+    }
+    const labelBtn = document.getElementById('labelBtn');
+    if (labelBtn) {
+      labelBtn.addEventListener('click', () => {
+        vscode.postMessage({ command: 'labelSession' });
       });
     }
   </script>
@@ -243,9 +271,11 @@ export function createDashboardPanel(
 
   updateWebview();
 
-  const changeListener = tracker.onDidChange(() => updateWebview());
+  const trackerListener = tracker.onDidChange(() => updateWebview());
+  const labelListener = labelStore.onDidChange(() => updateWebview());
   panel.onDidDispose(() => {
-    changeListener.dispose();
+    trackerListener.dispose();
+    labelListener.dispose();
     messageListener.dispose();
   });
 

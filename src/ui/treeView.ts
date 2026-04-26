@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { UsageTracker } from '../tracking/tracker';
+import { SessionLabelStore } from '../labels/labelStore';
 import { TokenSession } from '../models/types';
 import { formatTokenCount, formatDate, formatCost } from '../utils/formatting';
 import { getModelPricing, calculateCost } from '../utils/pricing';
@@ -31,10 +32,12 @@ export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   private _onDidChangeTreeData = new vscode.EventEmitter<TreeElement | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private changeListener: vscode.Disposable;
+  private trackerListener: vscode.Disposable;
+  private labelListener: vscode.Disposable;
 
-  constructor(private tracker: UsageTracker) {
-    this.changeListener = tracker.onDidChange(() => this.refresh());
+  constructor(private tracker: UsageTracker, private labelStore: SessionLabelStore) {
+    this.trackerListener = tracker.onDidChange(() => this.refresh());
+    this.labelListener = labelStore.onDidChange(() => this.refresh());
   }
 
   refresh(): void {
@@ -57,13 +60,18 @@ export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
       const u = s.totalUsage;
       const total = u.inputTokens + u.outputTokens + u.cacheCreationTokens + u.cacheReadTokens;
       const providerTag = PROVIDER_LABEL[s.provider] ?? s.provider;
+      const userLabel = this.labelStore.getLabel(s.sessionId);
+      const title = userLabel
+        ? `[${userLabel}] ${formatDate(s.lastTimestamp)}`
+        : formatDate(s.lastTimestamp);
 
       const item = new vscode.TreeItem(
-        formatDate(s.lastTimestamp),
+        title,
         vscode.TreeItemCollapsibleState.Collapsed,
       );
       item.description = `${formatTokenCount(total)} tokens · ${s.responses.length} responses · ${providerTag}`;
-      item.iconPath = new vscode.ThemeIcon('comment-discussion');
+      item.iconPath = new vscode.ThemeIcon(userLabel ? 'tag' : 'comment-discussion');
+      item.contextValue = 'tokenScope.session';
       return item;
     }
 
@@ -169,7 +177,8 @@ export class UsageTreeProvider implements vscode.TreeDataProvider<TreeElement> {
   }
 
   dispose(): void {
-    this.changeListener.dispose();
+    this.trackerListener.dispose();
+    this.labelListener.dispose();
     this._onDidChangeTreeData.dispose();
   }
 }

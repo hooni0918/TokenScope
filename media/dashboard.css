@@ -39,6 +39,21 @@ body {
   background: var(--vscode-button-hoverBackground);
 }
 
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.session-label {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
 /* Headings */
 h1 {
   font-size: 1.6em;

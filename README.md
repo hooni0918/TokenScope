@@ -95,6 +95,28 @@ Cost estimates appear in the status bar, tree view, and dashboard. If a model is
 
 You can toggle cost display on/off via the `tokenScope.showCostEstimate` setting.
 
+### Session Labeling & Comparison
+
+Tag any session with a custom name (e.g., `korean-skill`, `english-skill`, `task-A`) and compare two sessions side by side to see exactly which approach uses fewer tokens.
+
+**Why this is useful:**
+- Compare token cost of a Korean-written skill vs an English-written one
+- Measure how a prompt rewrite affected usage
+- Track cost difference between two implementation approaches
+
+**How to label:**
+- Click the tag icon next to any session in the tree view
+- Right-click a session → Label Session
+- Command Palette: `TokenScope: Label Session`
+- Dashboard: **Label Session** button
+
+**How to compare:**
+- Click the diff icon at the top of the TokenScope sidebar
+- Command Palette: `TokenScope: Compare Sessions`
+- Dashboard: **Compare Sessions** button
+
+The comparison panel shows total / input / output / cache write / cache read / reasoning / response count / estimated cost for both sessions, with absolute and percentage deltas. The session with fewer tokens gets a "cheaper" badge.
+
 ### CSV Export
 
 Export your complete session history to CSV for spreadsheets, reporting, or team sharing.
@@ -176,6 +198,8 @@ Data from all matched sources is merged and aggregated by session, model, and da
 |---------|-------------|
 | `TokenScope: Show Token Dashboard` | Open the visual dashboard in a new tab |
 | `TokenScope: Export Usage to CSV` | Export all session data to a CSV file |
+| `TokenScope: Label Session` | Tag a session with a custom name for easier identification |
+| `TokenScope: Compare Sessions` | Side-by-side diff of two sessions' token usage and cost |
 
 > **Tip:** You can also click the token counter in the status bar to open the dashboard.
 

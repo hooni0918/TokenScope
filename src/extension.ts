@@ -2,10 +2,13 @@ import * as vscode from 'vscode';
 import { setOutputChannel } from './tracking/claudeCodeParser';
 import { setCodexOutputChannel } from './tracking/codexParser';
 import { UsageTracker } from './tracking/tracker';
+import { SessionLabelStore } from './labels/labelStore';
 import { StatusBarManager } from './ui/statusBar';
 import { UsageTreeProvider } from './ui/treeView';
 import { registerShowDashboardCommand } from './commands/showDashboard';
 import { registerExportCsvCommand } from './commands/exportCsv';
+import { registerLabelSessionCommand } from './commands/labelSession';
+import { registerCompareSessionsCommand } from './commands/compareSessions';
 
 export function activate(context: vscode.ExtensionContext) {
   const outputChannel = vscode.window.createOutputChannel('TokenScope');
@@ -15,18 +18,21 @@ export function activate(context: vscode.ExtensionContext) {
 
   try {
     const tracker = new UsageTracker();
+    const labelStore = new SessionLabelStore(context);
 
     const statusBar = new StatusBarManager(tracker);
-    const treeProvider = new UsageTreeProvider(tracker);
+    const treeProvider = new UsageTreeProvider(tracker, labelStore);
 
     vscode.window.registerTreeDataProvider('tokenScope.usageView', treeProvider);
 
-    registerShowDashboardCommand(context, tracker);
+    registerShowDashboardCommand(context, tracker, labelStore);
     registerExportCsvCommand(context, tracker);
+    registerLabelSessionCommand(context, tracker, labelStore);
+    registerCompareSessionsCommand(context, tracker, labelStore);
 
     statusBar.show();
 
-    context.subscriptions.push(statusBar, treeProvider, tracker);
+    context.subscriptions.push(statusBar, treeProvider, tracker, labelStore);
 
     outputChannel.appendLine('TokenScope activated successfully');
   } catch (e) {

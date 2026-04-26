@@ -2,7 +2,7 @@
   "name": "tokenscope",
   "displayName": "TokenScope",
   "description": "Auto-track AI coding tool token usage per project. Supports Claude Code and OpenAI Codex CLI. See how many tokens you've spent on each workspace.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "hooni",
   "license": "MIT",
   "repository": {
@@ -48,8 +48,36 @@
         "command": "tokenScope.exportCsv",
         "title": "Export Usage to CSV",
         "category": "TokenScope"
+      },
+      {
+        "command": "tokenScope.labelSession",
+        "title": "Label Session",
+        "category": "TokenScope",
+        "icon": "$(tag)"
+      },
+      {
+        "command": "tokenScope.compareSessions",
+        "title": "Compare Sessions",
+        "category": "TokenScope",
+        "icon": "$(diff)"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "tokenScope.compareSessions",
+          "when": "view == tokenScope.usageView",
+          "group": "navigation@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "tokenScope.labelSession",
+          "when": "view == tokenScope.usageView && viewItem == tokenScope.session",
+          "group": "inline"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {
